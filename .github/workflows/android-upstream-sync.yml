@@ -61,6 +61,10 @@ jobs:
         with:
           targets: aarch64-linux-android,wasm32-unknown-unknown
 
+      # rust-toolchain.toml pins a version other than stable: give that toolchain the targets too.
+      - name: Add Android target to the pinned toolchain
+        run: rustup target add aarch64-linux-android wasm32-unknown-unknown
+
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
 
