@@ -519,6 +519,7 @@ fn matches_query(plugin: &Plugin, query: &str) -> bool {
 
 /// The Plugins page. Desktop only: the browser build has no per-user plugin folder.
 pub fn page(app: &mut SolveApp, ui: &mut egui::Ui) {
+    // SolidCraft Android port: the app's own folder is configured by the Android host.
     let dir = if cfg!(target_arch = "wasm32") { None } else { app.session.plugin_state.plugins_dir() };
     page_in_dir(app, ui, dir.as_deref());
 }
