@@ -17,7 +17,7 @@ jobs:
   sync:
     name: Merge latest SolidCraft release and build Android APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - name: Check out Android port
         uses: actions/checkout@v4
@@ -64,6 +64,13 @@ jobs:
       # rust-toolchain.toml pins a version other than stable: give that toolchain the targets too.
       - name: Add Android target to the pinned toolchain
         run: rustup target add aarch64-linux-android wasm32-unknown-unknown
+
+      # Keeps compiled dependencies between runs: four full builds (Android, desktop, wasm, APK)
+      # from scratch take about two hours on a hosted runner.
+      - name: Cache Rust builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
