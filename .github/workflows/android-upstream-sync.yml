@@ -1,0 +1,83 @@
+name: Sync Android port with upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: android-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Merge latest SolidCraft release and build Android APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out Android port
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform and NDK
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "ndk;29.0.14206865"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,wasm32-unknown-unknown
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Configure Git and upstream remote
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/tangency-labs/solidcraft.git
+          git fetch origin main
+
+      - name: Synchronize, run port checks and build APK
+        run: scripts/android-sync.sh --latest
+
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolidCraft-Android-debug
+          path: apps/solidcraft-android/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Open pull request with the synchronized port
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_BRANCH: sync/upstream-${{ github.run_id }}
+        run: |
+          if git diff --quiet origin/main...HEAD; then
+            echo "The Android port is already up to date; no pull request is needed."
+            exit 0
+          fi
+          git push origin "HEAD:refs/heads/$RUN_BRANCH"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$RUN_BRANCH" \
+            --title "Sync Android port with latest SolidCraft release" \
+            --body "Automated upstream release sync. The Android port checks and debug APK build completed in GitHub Actions. Please review the merge and test the APK on a device before merging."
