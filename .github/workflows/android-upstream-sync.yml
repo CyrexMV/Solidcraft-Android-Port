@@ -46,8 +46,16 @@ jobs:
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/29.0.14206865" >> "$GITHUB_ENV"
+
+          # sdkmanager closes stdin after reading all licenses. The 'yes'
+          # process then receives SIGPIPE; disable pipefail for this pipeline
+          # only so the step reports sdkmanager's exit status, not yes's.
+          set +o pipefail
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          set -o pipefail
+
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36" "ndk;29.0.14206865"
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
