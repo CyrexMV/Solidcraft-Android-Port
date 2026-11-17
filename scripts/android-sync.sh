@@ -90,9 +90,33 @@ if [ "$merge" = 1 ]; then
         $PORT report "$target" || true
         step "Merging $target"
         if ! git merge --no-edit -m "Merge upstream $target" "$target"; then
-            echo
-            git diff --name-only --diff-filter=U | sed 's/^/  conflict: /'
-            fail "merge conflicts: resolve them keeping both sides (docs/android-sync.md, 'Conflicts'), git commit, then run scripts/android-sync.sh --check-only"
+            conflicts=$(git diff --name-only --diff-filter=U)
+            echo "$conflicts" | sed 's/^/  conflict: /'
+
+            # The Plugins page's only Android-specific UI change is this marker. The actual
+            # Android plugin directory is configured by the host in crates/engine/src/plugin.rs.
+            # Keep upstream's complete page, then re-apply the marker required by android-port.py.
+            if [ "$conflicts" = "crates/ui-egui/src/plugins.rs" ]; then
+                step "Resolving the known Plugins page conflict (keep upstream UI + Android marker)"
+                git checkout --theirs -- crates/ui-egui/src/plugins.rs
+                python3 - <<'PY'
+from pathlib import Path
+
+path = Path("crates/ui-egui/src/plugins.rs")
+text = path.read_text(encoding="utf-8")
+marker = "// SolidCraft Android port: the app's own folder is configured by the Android host."
+anchor = '    let dir = if cfg!(target_arch = "wasm32") { None } else { app.session.plugin_state.plugins_dir() };'
+if marker not in text:
+    if anchor not in text:
+        raise SystemExit("Upstream Plugins page changed: expected page anchor not found; refusing an unsafe automatic resolution.")
+    text = text.replace(anchor, marker + "\\n" + anchor, 1)
+path.write_text(text, encoding="utf-8")
+PY
+                git add crates/ui-egui/src/plugins.rs
+                git commit --no-edit
+            else
+                fail "unrecognized merge conflict(s): resolve them keeping both sides (docs/android-sync.md, 'Conflicts')"
+            fi
         fi
         step "Port strings upstream now has too"
         if ! $PORT strings --fix; then
