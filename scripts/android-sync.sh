@@ -109,7 +109,7 @@ anchor = '    let dir = if cfg!(target_arch = "wasm32") { None } else { app.sess
 if marker not in text:
     if anchor not in text:
         raise SystemExit("Upstream Plugins page changed: expected page anchor not found; refusing an unsafe automatic resolution.")
-    text = text.replace(anchor, marker + "\\n" + anchor, 1)
+    text = text.replace(anchor, marker + "\n" + anchor, 1)
 path.write_text(text, encoding="utf-8")
 PY
                 git add crates/ui-egui/src/plugins.rs
